@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chastico</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh; background: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: Georgia, serif; padding: 24px;
+  }
+  #title { text-align: center; margin-bottom: 20px; }
+  #title .name { font-size: 30px; color: #111; font-style: italic; margin-bottom: 4px; }
+  #title .sub { font-size: 11px; letter-spacing: 5px; color: #aaa; text-transform: uppercase; }
+  #panel { width: 100%; max-width: 560px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+  #chat {
+    height: 400px; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 8px; background: #fff;
+  }
+  #chat .empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 13px; letter-spacing: 2px; font-style: italic; }
+  .msg-row { display: flex; align-items: flex-end; gap: 8px; animation: fadeIn 0.2s ease; }
+  .msg-row.user { flex-direction: row-reverse; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; background: #fafafa; }
+  .bubble { max-width: 75%; padding: 7px 11px; border-radius: 3px; font-size: 14px; line-height: 1.5; display: flex; align-items: baseline; gap: 6px; }
+  .bubble.parrot { background: #f9f9f9; border: 1px solid #eee; color: #333; font-style: italic; }
+  .bubble.user   { background: #111; color: #fff; }
+  .bubble.outburst { background: #111; border: none; color: #fff; font-size: 15px; font-weight: bold; letter-spacing: 1px; font-style: normal; }
+  .inst-emoji { font-size: 10px; opacity: 0.4; flex-shrink: 0; }
+  #temp-row { padding: 8px 16px; background: #fafafa; border-top: 1px solid #eee; display: flex; align-items: center; gap: 12px; }
+  #temp-row span.label { font-size: 10px; color: #bbb; letter-spacing: 2px; }
+  #temp-row input { flex: 1; accent-color: #111; cursor: pointer; }
+  #temp-row span.val { font-size: 11px; color: #333; min-width: 30px; text-align: right; }
+  #temp-row span.mode { font-size: 10px; color: #aaa; min-width: 52px; }
+  #input-row { display: flex; padding: 10px 14px; gap: 8px; align-items: center; border-top: 1px solid #eee; background: #fff; }
+  #input-row input { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 8px 12px; color: #111; font-size: 13px; outline: none; font-family: inherit; transition: border-color 0.3s; }
+  #input-row input.outburst { border-color: #c22; }
+  #parrot-indicator { line-height: 1; user-select: none; flex-shrink: 0; transition: font-size 0.4s, opacity 0.4s; }
+  #send-btn { border: none; border-radius: 3px; padding: 8px 16px; font-size: 12px; cursor: pointer; letter-spacing: 1px; font-family: inherit; transition: all 0.3s; }
+  #care-row { display: flex; gap: 6px; padding: 8px 14px 10px; border-top: 1px solid #f5f5f5; background: #fff; }
+  .care-btn { background: none; border: 1px solid #ddd; border-radius: 3px; padding: 4px 10px; font-size: 11px; color: #888; cursor: pointer; font-family: inherit; letter-spacing: 0.5px; transition: all 0.3s; }
+  .care-btn:disabled { border-color: #f0f0f0; color: #ddd; cursor: default; text-decoration: line-through; }
+  #bottom { margin-top: 10px; display: flex; align-items: center; gap: 12px; }
+  #memory { font-size: 10px; color: #ccc; letter-spacing: 2px; }
+  .sm-btn { background: none; border: 1px solid #ddd; border-radius: 3px; padding: 3px 8px; font-size: 10px; color: #aaa; cursor: pointer; letter-spacing: 1px; font-family: inherit; }
+  #legend { margin-top: 12px; width: 100%; max-width: 560px; display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; }
+  .leg-item { font-size: 10px; color: #aaa; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+  .leg-item .e { font-size: 11px; }
+  @keyframes fadeIn  { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes flicker { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  #chat::-webkit-scrollbar { width: 3px; }
+  #chat::-webkit-scrollbar-track { background: #fff; }
+  #chat::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="title">
+  <div class="name">Chastico</div>
+  <div class="sub">stochastic parrot</div>
+</div>
+
+<div id="panel">
+  <div id="chat"><div class="empty">listening...</div></div>
+  <div id="temp-row">
+    <span class="label">TEMP</span>
+    <input type="range" id="temp-slider" min="0.1" max="2.0" step="0.05" value="0.8">
+    <span class="val" id="temp-val">0.80</span>
+    <span class="mode" id="temp-mode">words</span>
+  </div>
+  <div id="input-row">
+    <input type="text" id="msg-input" placeholder="talk to Chastico...">
+    <div id="parrot-indicator">🦜</div>
+    <button id="send-btn">SEND</button>
+  </div>
+  <div id="care-row">
+    <button class="care-btn" id="care-treat">🍪 cookie</button>
+    <button class="care-btn" id="care-toy">🪀 toy</button>
+    <button class="care-btn" id="care-pet">✋ pet</button>
+  </div>
+</div>
+
+<div id="bottom">
+  <div id="memory">0 phrases · 0 words · 0 tokens</div>
+  <button class="sm-btn" id="save-btn">SAVE</button>
+  <button class="sm-btn" id="load-btn">LOAD</button>
+  <input type="file" id="load-input" accept=".json" style="display:none">
+</div>
+
+<div id="legend"></div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const INSTINCTS = [
+  { id:"hunger",      emoji:"🌰", label:"Hunger",      minMs:60000,  maxMs:150000 },
+  { id:"attention",   emoji:"👁️", label:"Attention",   minMs:45000,  maxMs:110000 },
+  { id:"playful",     emoji:"🎲", label:"Playfulness", minMs:50000,  maxMs:130000 },
+  { id:"affection",   emoji:"🪶", label:"Affection",   minMs:80000,  maxMs:200000 },
+  { id:"arousal",     emoji:"❤️", label:"Arousal",     minMs:150000, maxMs:400000 },
+  { id:"reward",      emoji:"✨", label:"Reward",      minMs:90000,  maxMs:220000 },
+  { id:"territorial", emoji:"🏠", label:"Territory",   minMs:120000, maxMs:300000 },
+  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   minMs:40000,  maxMs:100000 },
+  { id:"boredom",     emoji:"💤", label:"Boredom",     minMs:100000, maxMs:250000 },
+];
+const COMM = { emoji:"💬", label:"Response", replyWindowMin:300, replyWindowMax:1400, cooldownMin:20000, cooldownMax:50000 };
+const CARE_ACTIONS = [
+  { id:"treat", label:"cookie", emoji:"🍪" },
+  { id:"toy",   label:"toy",    emoji:"🪀" },
+  { id:"pet",   label:"pet",    emoji:"✋" },
+];
+const EMOJI_MAP = Object.fromEntries([
+  ...INSTINCTS.map(({id,emoji}) => [id,emoji]),
+  ["comm", COMM.emoji], ["outburst","💥"],
+]);
+const RAPID_WINDOW_MS = 8000;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const randInt = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+const pick    = arr => arr[Math.floor(Math.random()*arr.length)];
+const altCaps = s => s.split("").map((c,i)=>i%2===0?c.toUpperCase():c.toLowerCase()).join("");
+const crazyTransform = t => { const r=Math.random(); if(r<0.5) return t.toUpperCase(); if(r<0.8) return altCaps(t); return t.toUpperCase()+"!!"; };
+
+// ── Markov ─────────────────────────────────────────────────────────────────
+function markovNext(chain, cur, temp, pool) {
+  const nexts = chain[cur];
+  if (!nexts) return pick(pool);
+  const keys = Object.keys(nexts);
+  const w = keys.map(k => Math.pow(nexts[k], 1/Math.max(temp,0.01)));
+  const total = w.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for (let i=0;i<keys.length;i++) { r-=w[i]; if(r<=0) return keys[i]; }
+  return keys[keys.length-1];
+}
+function markovWalk(chain, pool, steps, temp) {
+  if (!pool.length) return [];
+  const starts = Object.keys(chain).length ? Object.keys(chain) : pool;
+  let cur = pick(starts);
+  const res = [cur];
+  for (let i=1;i<steps;i++) { cur=markovNext(chain,cur,temp,pool); res.push(cur); }
+  return res;
+}
+function mergeChain(existing, tokens) {
+  const u = {...existing};
+  for (let i=0;i<tokens.length-1;i++) {
+    const a=tokens[i], b=tokens[i+1];
+    if (!u[a]) u[a]={};
+    u[a] = {...u[a], [b]:(u[a][b]||0)+1};
+  }
+  return u;
+}
+
+// ── Lexicon ────────────────────────────────────────────────────────────────
+function ingest(text) {
+  const phrases = text.split(/[.!?,;:\n]+/).map(s=>s.trim()).filter(s=>s.length>2&&s.length<80);
+  const words = text.toLowerCase().replace(/[^a-z0-9'\s-]/g,"").split(/\s+/).filter(w=>w.length>1);
+  const subtokens = words.flatMap(w => {
+    if (w.length<=3) return [w];
+    const chunks=[];
+    for (let i=0;i<w.length;) { const sz=2+Math.floor(Math.random()*2); chunks.push(w.slice(i,i+sz)); i+=sz; }
+    return chunks.filter(c=>c.length>0);
+  });
+  return {phrases,words,subtokens};
+}
+
+function generateUtterance({phrases,words,subtokens,phraseChain,wordChain,subtokenChain}, temp) {
+  if (!phrases.length && !words.length) return "";
+  const r = Math.random();
+  if (temp<0.6 || (temp<1.0 && r<0.65)) {
+    if (!phrases.length) return words.slice(-5).join(" ");
+    const p = markovWalk(phraseChain,phrases,1,temp)[0] || phrases[phrases.length-1];
+    const m = Math.random();
+    if (m<0.12) return p.toUpperCase();
+    if (m<0.22) return p+"...";
+    if (m<0.30) return p.split(" ").slice(0,Math.max(1,Math.floor(p.split(" ").length*0.55))).join(" ");
+    if (m<0.36) return p+" "+p.split(" ")[0];
+    return p;
+  }
+  if (temp<1.4 || (temp<1.8 && r<0.55)) {
+    if (!words.length) return phrases[phrases.length-1]||"";
+    const walked = markovWalk(wordChain,words,2+Math.floor(Math.random()*4),temp);
+    const joined = walked.join(" ");
+    if (Math.random()<0.15) return joined.toUpperCase();
+    if (Math.random()<0.12) return joined+" "+walked[0];
+    return joined;
+  }
+  const pool  = subtokens.length>4 ? subtokens : words;
+  const chain = subtokens.length>4 ? subtokenChain : wordChain;
+  const frags = markovWalk(chain,pool,3+Math.floor(Math.random()*5),temp);
+  const result=[];
+  let i=0;
+  while(i<frags.length) {
+    if(i+1<frags.length && Math.random()<0.35){result.push(frags[i]+frags[i+1]);i+=2;}
+    else{result.push(frags[i]);i++;}
+  }
+  const out=result.join(" ");
+  if(Math.random()<0.2) return out.toUpperCase();
+  if(Math.random()<0.15) return out+"...";
+  return out;
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let lexicon = {phrases:[],words:[],subtokens:[],phraseChain:{},wordChain:{},subtokenChain:{}};
+let temperature   = 0.8;
+let commState     = "available"; // available | fatigued | outburst
+let replyCount    = 0;
+let careUses      = {treat:0,toy:0,pet:0};
+let suppressInstincts = false;
+let rapidCount    = 0;
+let lastMsgTs     = 0;
+let outburstThr   = randInt(5,8);
+let fatigueThr    = randInt(5,15);
+let cooldownTimer = null;
+const instinctTimers = {};
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const chatEl      = document.getElementById("chat");
+const msgInput    = document.getElementById("msg-input");
+const sendBtn     = document.getElementById("send-btn");
+const parrotEl    = document.getElementById("parrot-indicator");
+const tempSlider  = document.getElementById("temp-slider");
+const tempVal     = document.getElementById("temp-val");
+const tempMode    = document.getElementById("temp-mode");
+const memoryEl    = document.getElementById("memory");
+const careButtons = { treat: document.getElementById("care-treat"), toy: document.getElementById("care-toy"), pet: document.getElementById("care-pet") };
+
+// ── Render helpers ─────────────────────────────────────────────────────────
+function addMessage({from, text, instinct}) {
+  const empty = chatEl.querySelector(".empty");
+  if (empty) empty.remove();
+
+  const isParrot = from === "parrot";
+  const isOut    = instinct === "outburst";
+  const emoji    = instinct ? EMOJI_MAP[instinct] : null;
+
+  const row = document.createElement("div");
+  row.className = "msg-row" + (isParrot ? "" : " user");
+
+  if (isParrot) {
+    const av = document.createElement("div");
+    av.className = "avatar"; av.textContent = "🦜";
+    row.appendChild(av);
+  }
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble " + (isOut ? "outburst" : isParrot ? "parrot" : "user");
+
+  const span = document.createElement("span");
+  span.textContent = text;
+  bubble.appendChild(span);
+
+  if (isParrot && emoji) {
+    const espan = document.createElement("span");
+    espan.className = "inst-emoji"; espan.textContent = emoji;
+    bubble.appendChild(espan);
+  }
+
+  row.appendChild(bubble);
+  chatEl.appendChild(row);
+
+  // keep max 120 messages
+  while (chatEl.children.length > 120) chatEl.removeChild(chatEl.firstChild);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function updateUI() {
+  const isOut = commState === "outburst";
+  const isFat = commState === "fatigued";
+  const fatRatio = replyCount / Math.max(fatigueThr, 1);
+
+  // parrot indicator
+  if (isOut) {
+    parrotEl.textContent = "💥";
+    parrotEl.style.fontSize = "18px";
+    parrotEl.style.opacity = "1";
+    parrotEl.style.animation = "flicker 0.2s infinite";
+  } else {
+    parrotEl.textContent = "🦜";
+    parrotEl.style.animation = "none";
+    if (isFat) {
+      parrotEl.style.fontSize = "8px";
+      parrotEl.style.opacity = "0.2";
+    } else {
+      parrotEl.style.fontSize = Math.round(20 - fatRatio*13) + "px";
+      parrotEl.style.opacity  = (0.9 - fatRatio*0.6).toFixed(2);
+    }
+  }
+
+  // send button
+  if (isOut) {
+    sendBtn.textContent = "💥";
+    sendBtn.style.background = "#c22";
+    sendBtn.style.color = "#fff";
+    sendBtn.style.cursor = "not-allowed";
+  } else if (isFat) {
+    sendBtn.textContent = "SEND";
+    sendBtn.style.background = "#f0f0f0";
+    sendBtn.style.color = "#aaa";
+    sendBtn.style.cursor = "pointer";
+  } else {
+    sendBtn.textContent = "SEND";
+    sendBtn.style.background = "#111";
+    sendBtn.style.color = "#fff";
+    sendBtn.style.cursor = "pointer";
+  }
+
+  // input
+  msgInput.placeholder = isOut ? "💥💥💥" : isFat ? "Chastico needs a break..." : "talk to Chastico...";
+  msgInput.className   = isOut ? "outburst" : "";
+
+  // care buttons
+  CARE_ACTIONS.forEach(({id}) => {
+    const btn = careButtons[id];
+    btn.disabled = careUses[id] >= 999;
+  });
+
+  // memory
+  memoryEl.textContent = `${new Set(lexicon.phrases).size} phrases · ${new Set(lexicon.words).size} words · ${new Set(lexicon.subtokens).size} tokens`;
+
+  // temp
+  tempVal.textContent  = temperature.toFixed(2);
+  tempMode.textContent = temperature < 0.6 ? "phrases" : temperature < 1.3 ? "words" : "tokens";
+}
+
+// ── State transitions ──────────────────────────────────────────────────────
+function wakeUp() {
+  commState   = "available";
+  replyCount  = 0;
+  careUses    = {treat:0,toy:0,pet:0};
+  outburstThr = randInt(5,8);
+  fatigueThr  = randInt(5,15);
+  updateUI();
+}
+
+function enterFatigue() {
+  commState        = "fatigued";
+  replyCount       = 0;
+  rapidCount       = 0;
+  suppressInstincts = false;
+  const cooldown = COMM.cooldownMin + Math.random()*(COMM.cooldownMax-COMM.cooldownMin);
+  clearTimeout(cooldownTimer);
+  cooldownTimer = setTimeout(wakeUp, cooldown);
+  updateUI();
+}
+
+function enterOutburst() {
+  commState         = "outburst";
+  suppressInstincts = true;
+  updateUI();
+  const count = randInt(5,8);
+  for (let i=0;i<count;i++) {
+    const delay = (i+1)*(300+Math.random()*400);
+    setTimeout(() => {
+      const text = crazyTransform(generateUtterance(lexicon,1.8)||"!!!");
+      addMessage({from:"parrot",text,instinct:"outburst"});
+      if (i===count-1) setTimeout(enterFatigue, 600);
+    }, delay);
+  }
+}
+
+// ── Instinct timers ────────────────────────────────────────────────────────
+function scheduleInstinct(inst) {
+  const delay = inst.minMs + Math.random()*(inst.maxMs-inst.minMs);
+  instinctTimers[inst.id] = setTimeout(() => {
+    if (!suppressInstincts && (lexicon.phrases.length||lexicon.words.length)) {
+      const text = generateUtterance(lexicon, temperature);
+      if (text) { addMessage({from:"parrot",text,instinct:inst.id}); rapidCount=0; }
+    }
+    scheduleInstinct(inst);
+  }, delay);
+}
+INSTINCTS.forEach(scheduleInstinct);
+
+// ── Send message ───────────────────────────────────────────────────────────
+function handleSend() {
+  const text = msgInput.value.trim();
+  if (!text || commState==="outburst") { msgInput.value=""; return; }
+  msgInput.value = "";
+  addMessage({from:"user",text});
+
+  const {phrases,words,subtokens} = ingest(text);
+  lexicon = {
+    phrases:       [...lexicon.phrases,   ...phrases  ].slice(-120),
+    words:         [...lexicon.words,     ...words    ].slice(-400),
+    subtokens:     [...lexicon.subtokens, ...subtokens].slice(-800),
+    phraseChain:   mergeChain(lexicon.phraseChain,   phrases),
+    wordChain:     mergeChain(lexicon.wordChain,     words),
+    subtokenChain: mergeChain(lexicon.subtokenChain, subtokens),
+  };
+
+  const now = Date.now();
+  if (now - lastMsgTs > RAPID_WINDOW_MS) rapidCount = 0;
+  rapidCount++;
+  lastMsgTs = now;
+
+  if (rapidCount >= outburstThr && commState !== "outburst") {
+    rapidCount = 0;
+    clearTimeout(cooldownTimer);
+    suppressInstincts = true;
+    setTimeout(enterOutburst, 200);
+    updateUI();
+    return;
+  }
+
+  if (commState==="available" && (lexicon.phrases.length||lexicon.words.length)) {
+    suppressInstincts = true;
+    const delay = COMM.replyWindowMin + Math.random()*(COMM.replyWindowMax-COMM.replyWindowMin);
+    setTimeout(() => {
+      if (commState !== "available") { suppressInstincts=false; updateUI(); return; }
+      const utterance = generateUtterance(lexicon, temperature);
+      addMessage({from:"parrot",text:utterance,instinct:"comm"});
+      rapidCount = 0;
+      suppressInstincts = false;
+      replyCount++;
+      if (replyCount >= fatigueThr) enterFatigue();
+      else updateUI();
+    }, delay);
+  }
+
+  updateUI();
+}
+
+sendBtn.addEventListener("click", handleSend);
+msgInput.addEventListener("keydown", e => { if (e.key==="Enter") handleSend(); });
+
+// ── Care buttons ───────────────────────────────────────────────────────────
+function handleCare(id) {
+  if (commState==="outburst") return;
+  const success = Math.random() < (0.2 + Math.random()*0.6);
+  if (!success) {
+    careUses[id] = 999;
+    updateUI();
+    return;
+  }
+  if (lexicon.words.length||lexicon.phrases.length) {
+    const utterance = generateUtterance(lexicon, 0.3);
+    if (utterance) addMessage({from:"parrot",text:utterance,instinct:"affection"});
+  }
+  if (commState==="fatigued") {
+    clearTimeout(cooldownTimer);
+    wakeUp();
+  }
+  updateUI();
+}
+CARE_ACTIONS.forEach(({id}) => careButtons[id].addEventListener("click", () => handleCare(id)));
+
+// ── Temperature slider ─────────────────────────────────────────────────────
+tempSlider.addEventListener("input", e => { temperature=parseFloat(e.target.value); updateUI(); });
+
+// ── Save / Load ────────────────────────────────────────────────────────────
+document.getElementById("save-btn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(lexicon,null,2)],{type:"application/json"});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href=url; a.download="chastico-memory.json"; a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById("load-btn").addEventListener("click", () => document.getElementById("load-input").click());
+document.getElementById("load-input").addEventListener("change", e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const p = JSON.parse(ev.target.result);
+      if (!p.phrases||!p.words||!p.subtokens) throw new Error();
+      lexicon = {
+        phrases:       (p.phrases      ||[]).slice(-120),
+        words:         (p.words        ||[]).slice(-400),
+        subtokens:     (p.subtokens    ||[]).slice(-800),
+        phraseChain:   p.phraseChain   ||{},
+        wordChain:     p.wordChain     ||{},
+        subtokenChain: p.subtokenChain ||{},
+      };
+      updateUI();
+    } catch { alert("invalid file format"); }
+  };
+  reader.readAsText(file);
+  e.target.value="";
+});
+
+// ── Legend ─────────────────────────────────────────────────────────────────
+const legendEl = document.getElementById("legend");
+[...INSTINCTS,{id:"comm",emoji:COMM.emoji,label:COMM.label},{id:"outburst",emoji:"💥",label:"Outburst"}].forEach(({emoji,label}) => {
+  const div = document.createElement("div");
+  div.className = "leg-item";
+  div.innerHTML = `<span class="e">${emoji}</span><span>${label}</span>`;
+  legendEl.appendChild(div);
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+updateUI();
+</script>
+</body>
+</html>

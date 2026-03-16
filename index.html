@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chastico, the Stochastic Parrot</title>
+<title>🦜 Chastico, the Stochastic Parrot 🦜</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -24,6 +24,7 @@
   .msg-row.user { flex-direction: row-reverse; }
   .avatar { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; background: #fafafa; }
   .bubble { max-width: 75%; padding: 7px 11px; border-radius: 3px; font-size: 14px; line-height: 1.5; display: flex; align-items: baseline; gap: 6px; }
+  .bubble .timestamp { font-size: 9px; color: #ddd; margin-left: auto; flex-shrink: 0; white-space: nowrap; }
   .bubble.parrot { background: #f9f9f9; border: 1px solid #eee; color: #333; font-style: italic; }
   .bubble.user   { background: #111; color: #fff; }
   .bubble.outburst { background: #111; border: none; color: #fff; font-size: 15px; font-weight: bold; letter-spacing: 1px; font-style: normal; }
@@ -71,7 +72,7 @@
   </div>
   <div id="input-row">
     <input type="text" id="msg-input" placeholder="talk to Chastico...">
-    <div id="parrot-indicator">🦜</div>
+    <div id="parrot-indicator" title="Responsiveness">🦜</div>
     <button id="send-btn">SEND</button>
   </div>
   <div id="care-row">
@@ -255,6 +256,12 @@ function addMessage({from, text, instinct}) {
     espan.className = "inst-emoji"; espan.textContent = emoji;
     bubble.appendChild(espan);
   }
+
+  const now = new Date();
+  const timestamp = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+  const tspan = document.createElement("span");
+  tspan.className = "timestamp"; tspan.textContent = timestamp;
+  bubble.appendChild(tspan);
 
   row.appendChild(bubble);
   chatEl.appendChild(row);

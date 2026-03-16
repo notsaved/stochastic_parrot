@@ -83,6 +83,7 @@
 
 <div id="bottom">
   <div id="memory">0 phrases · 0 words · 0 tokens</div>
+  <button class="sm-btn" id="clear-btn">CLEAR</button>
   <button class="sm-btn" id="save-btn">SAVE</button>
   <button class="sm-btn" id="load-btn">LOAD</button>
   <input type="file" id="load-input" accept=".json" style="display:none">
@@ -305,7 +306,7 @@ function updateUI() {
   }
 
   // input
-  msgInput.placeholder = isOut ? "💥💥💥" : isFat ? "Chastico needs a break..." : "talk to Chastico...";
+  msgInput.placeholder = isOut ? "💥💥💥" : isFat ? "Chastico is tired, try to get his attention..." : "talk to Chastico...";
   msgInput.className   = isOut ? "outburst" : "";
 
   // care buttons
@@ -380,9 +381,9 @@ function handleSend() {
 
   const {phrases,words,subtokens} = ingest(text);
   lexicon = {
-    phrases:       [...lexicon.phrases,   ...phrases  ].slice(-120),
-    words:         [...lexicon.words,     ...words    ].slice(-400),
-    subtokens:     [...lexicon.subtokens, ...subtokens].slice(-800),
+    phrases:       [...lexicon.phrases,   ...phrases  ].slice(-1000),
+    words:         [...lexicon.words,     ...words    ].slice(-3300),
+    subtokens:     [...lexicon.subtokens, ...subtokens].slice(-6600),
     phraseChain:   mergeChain(lexicon.phraseChain,   phrases),
     wordChain:     mergeChain(lexicon.wordChain,     words),
     subtokenChain: mergeChain(lexicon.subtokenChain, subtokens),
@@ -414,10 +415,12 @@ function handleSend() {
       replyCount++;
       if (replyCount >= fatigueThr) enterFatigue();
       else updateUI();
+      saveLexiconToStorage();
     }, delay);
   }
 
   updateUI();
+  saveLexiconToStorage();
 }
 
 sendBtn.addEventListener("click", handleSend);
@@ -441,11 +444,44 @@ function handleCare(id) {
     wakeUp();
   }
   updateUI();
+  saveLexiconToStorage();
 }
 CARE_ACTIONS.forEach(({id}) => careButtons[id].addEventListener("click", () => handleCare(id)));
 
 // ── Temperature slider ─────────────────────────────────────────────────────
 tempSlider.addEventListener("input", e => { temperature=parseFloat(e.target.value); updateUI(); });
+
+// ── LocalStorage helpers ───────────────────────────────────────────────────
+function saveLexiconToStorage() {
+  try {
+    localStorage.setItem("chastico-lexicon", JSON.stringify(lexicon));
+  } catch (e) {
+    console.warn("Failed to save to localStorage:", e);
+  }
+}
+
+function loadLexiconFromStorage() {
+  try {
+    const stored = localStorage.getItem("chastico-lexicon");
+    if (stored) {
+      const p = JSON.parse(stored);
+      if (p.phrases && p.words && p.subtokens) {
+        lexicon = {
+          phrases:       (p.phrases      ||[]).slice(-1000),
+          words:         (p.words        ||[]).slice(-3300),
+          subtokens:     (p.subtokens    ||[]).slice(-6600),
+          phraseChain:   p.phraseChain   ||{},
+          wordChain:     p.wordChain     ||{},
+          subtokenChain: p.subtokenChain ||{},
+        };
+        return true;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to load from localStorage:", e);
+  }
+  return false;
+}
 
 // ── Save / Load ────────────────────────────────────────────────────────────
 document.getElementById("save-btn").addEventListener("click", () => {
@@ -456,6 +492,13 @@ document.getElementById("save-btn").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 document.getElementById("load-btn").addEventListener("click", () => document.getElementById("load-input").click());
+document.getElementById("clear-btn").addEventListener("click", () => {
+  if (confirm("Clear all saved memory?")) {
+    lexicon = {phrases:[],words:[],subtokens:[],phraseChain:{},wordChain:{},subtokenChain:{}};
+    localStorage.removeItem("chastico-lexicon");
+    updateUI();
+  }
+});
 document.getElementById("load-input").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
@@ -464,13 +507,14 @@ document.getElementById("load-input").addEventListener("change", e => {
       const p = JSON.parse(ev.target.result);
       if (!p.phrases||!p.words||!p.subtokens) throw new Error();
       lexicon = {
-        phrases:       (p.phrases      ||[]).slice(-120),
-        words:         (p.words        ||[]).slice(-400),
-        subtokens:     (p.subtokens    ||[]).slice(-800),
+        phrases:       (p.phrases      ||[]).slice(-1000),
+        words:         (p.words        ||[]).slice(-3300),
+        subtokens:     (p.subtokens    ||[]).slice(-6600),
         phraseChain:   p.phraseChain   ||{},
         wordChain:     p.wordChain     ||{},
         subtokenChain: p.subtokenChain ||{},
       };
+      saveLexiconToStorage();
       updateUI();
     } catch { alert("invalid file format"); }
   };
@@ -488,6 +532,7 @@ const legendEl = document.getElementById("legend");
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────
+loadLexiconFromStorage();
 updateUI();
 </script>
 </body>

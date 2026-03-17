@@ -46,7 +46,8 @@
   #memory { font-size: 10px; color: #ccc; letter-spacing: 2px; }
   .sm-btn { background: none; border: 1px solid #ddd; border-radius: 3px; padding: 3px 8px; font-size: 10px; color: #aaa; cursor: pointer; letter-spacing: 1px; font-family: inherit; }
   #legend { margin-top: 12px; width: 100%; max-width: 560px; display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; }
-  .leg-item { font-size: 10px; color: #aaa; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
+  .leg-item { font-size: 10px; color: #aaa; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; transition: color 0.2s; cursor: help; }
+  .leg-item:hover { color: #666; }
   .leg-item.active { color: #111; font-weight: bold; }
   .leg-item .e { font-size: 11px; }
   @keyframes fadeIn  { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:translateY(0); } }
@@ -699,12 +700,28 @@ document.getElementById("load-input").addEventListener("change", e => {
   e.target.value="";
 });
 
+// ── Legend interaction tips ────────────────────────────────────────────────
+const MOOD_TIPS = {
+  hunger: "Stop with 🍪 cookie",
+  attention: "Stop with 💬 message",
+  playful: "Stop with 🪀 toy",
+  affection: "Stop with ✋ pet",
+  arousal: "Extend with ✋ pet",
+  reward: "Extend with 🍪 cookie",
+  territorial: "Extend with any action (message or care)",
+  curiosity: "Stop with 5+ messages or 🪀 toy",
+  boredom: "Cannot be stopped (let it pass)",
+  comm: "Responds unless fatigued",
+  outburst: "Triggered by rapid messaging",
+};
+
 // ── Legend ─────────────────────────────────────────────────────────────────
 const legendEl = document.getElementById("legend");
 [...INSTINCTS,{id:"comm",emoji:COMM.emoji,label:COMM.label},{id:"outburst",emoji:"💥",label:"Outburst"}].forEach(({id,emoji,label}) => {
   const div = document.createElement("div");
   div.className = "leg-item";
   div.setAttribute("data-mood-id", id);
+  div.title = MOOD_TIPS[id] || "";
   div.innerHTML = `<span class="e">${emoji}</span><span>${label}</span>`;
   legendEl.appendChild(div);
 });

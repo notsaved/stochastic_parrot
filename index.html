@@ -24,7 +24,7 @@
   .msg-row.user { flex-direction: row-reverse; }
   .avatar { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; background: #fafafa; }
   .bubble { max-width: 75%; padding: 7px 11px; border-radius: 3px; font-size: 14px; line-height: 1.5; display: flex; align-items: baseline; gap: 6px; }
-  .bubble .timestamp { font-size: 9px; color: #ddd; margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+  .msg-timestamp { font-size: 9px; color: #ddd; margin-top: 2px; padding: 0 8px; }
   .bubble.parrot { background: #f9f9f9; border: 1px solid #eee; color: #333; font-style: italic; }
   .bubble.user   { background: #111; color: #fff; }
   .bubble.outburst { background: #111; border: none; color: #fff; font-size: 15px; font-weight: bold; letter-spacing: 1px; font-style: normal; }
@@ -65,7 +65,7 @@
 <div id="panel">
   <div id="chat"><div class="empty">listening...</div></div>
   <div id="temp-row">
-    <span class="label">TEMP</span>
+    <span class="label">FOCUS</span>
     <input type="range" id="temp-slider" min="0.1" max="2.0" step="0.05" value="0.8">
     <span class="val" id="temp-val">0.80</span>
     <span class="mode" id="temp-mode">words</span>
@@ -95,15 +95,15 @@
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────
 const INSTINCTS = [
-  { id:"hunger",      emoji:"🌰", label:"Hunger",      minMs:60000,  maxMs:150000 },
-  { id:"attention",   emoji:"👁️", label:"Attention",   minMs:45000,  maxMs:110000 },
-  { id:"playful",     emoji:"🎲", label:"Playfulness", minMs:50000,  maxMs:130000 },
-  { id:"affection",   emoji:"🪶", label:"Affection",   minMs:80000,  maxMs:200000 },
-  { id:"arousal",     emoji:"❤️", label:"Arousal",     minMs:150000, maxMs:400000 },
-  { id:"reward",      emoji:"✨", label:"Reward",      minMs:90000,  maxMs:220000 },
-  { id:"territorial", emoji:"🏠", label:"Territory",   minMs:120000, maxMs:300000 },
-  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   minMs:40000,  maxMs:100000 },
-  { id:"boredom",     emoji:"💤", label:"Boredom",     minMs:100000, maxMs:250000 },
+  { id:"hunger",      emoji:"🌰", label:"Hunger",      cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:30000 },
+  { id:"attention",   emoji:"👁️", label:"Attention",   cooldownMin:240000,  cooldownMax:420000,  durationMin:12000, durationMax:35000 },
+  { id:"playful",     emoji:"🎲", label:"Playfulness", cooldownMin:200000,  cooldownMax:380000,  durationMin:10000, durationMax:28000 },
+  { id:"affection",   emoji:"🪶", label:"Affection",   cooldownMin:300000,  cooldownMax:600000,  durationMin:15000, durationMax:40000 },
+  { id:"arousal",     emoji:"❤️", label:"Arousal",     cooldownMin:420000,  cooldownMax:840000,  durationMin:20000, durationMax:50000 },
+  { id:"reward",      emoji:"✨", label:"Reward",      cooldownMin:240000,  cooldownMax:480000,  durationMin:12000, durationMax:32000 },
+  { id:"territorial", emoji:"🏠", label:"Territory",   cooldownMin:360000,  cooldownMax:720000,  durationMin:15000, durationMax:38000 },
+  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:25000 },
+  { id:"boredom",     emoji:"💤", label:"Boredom",     cooldownMin:300000,  cooldownMax:600000,  durationMin:12000, durationMax:35000 },
 ];
 const COMM = { emoji:"💬", label:"Response", replyWindowMin:300, replyWindowMax:1400, cooldownMin:20000, cooldownMax:50000 };
 const CARE_ACTIONS = [
@@ -214,6 +214,7 @@ let outburstThr   = randInt(5,8);
 let fatigueThr    = randInt(5,15);
 let cooldownTimer = null;
 const instinctTimers = {};
+const activeMoods = new Set(); // tracks which moods are currently active
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const chatEl      = document.getElementById("chat");
@@ -257,14 +258,16 @@ function addMessage({from, text, instinct}) {
     bubble.appendChild(espan);
   }
 
-  const now = new Date();
-  const timestamp = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
-  const tspan = document.createElement("span");
-  tspan.className = "timestamp"; tspan.textContent = timestamp;
-  bubble.appendChild(tspan);
-
   row.appendChild(bubble);
   chatEl.appendChild(row);
+
+  const now = new Date();
+  const timestamp = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+  const tDiv = document.createElement("div");
+  tDiv.className = "msg-timestamp";
+  tDiv.style.textAlign = isParrot ? "left" : "right";
+  tDiv.textContent = timestamp;
+  chatEl.appendChild(tDiv);
 
   // keep max 120 messages
   while (chatEl.children.length > 120) chatEl.removeChild(chatEl.firstChild);
@@ -367,15 +370,43 @@ function enterOutburst() {
 }
 
 // ── Instinct timers ────────────────────────────────────────────────────────
+// Each instinct has two phases:
+// 1. COOLDOWN: Wait cooldownMin-Max milliseconds before activating
+// 2. ACTIVE: Stay active for durationMin-Max seconds, generating messages periodically
 function scheduleInstinct(inst) {
-  const delay = inst.minMs + Math.random()*(inst.maxMs-inst.minMs);
+  const cooldown = inst.cooldownMin + Math.random()*(inst.cooldownMax - inst.cooldownMin);
   instinctTimers[inst.id] = setTimeout(() => {
-    if (!suppressInstincts && (lexicon.phrases.length||lexicon.words.length)) {
+    // Mood activation triggered
+    activeMoods.add(inst.id);
+    const duration = inst.durationMin + Math.random()*(inst.durationMax - inst.durationMin);
+    const activationTime = Date.now();
+    
+    // Generate message immediately on activation
+    if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length)) {
       const text = generateUtterance(lexicon, temperature);
-      if (text) { addMessage({from:"parrot",text,instinct:inst.id}); rapidCount=0; }
+      if (text) addMessage({from:"parrot", text, instinct: inst.id});
     }
-    scheduleInstinct(inst);
-  }, delay);
+    
+    // During active phase, generate periodic messages
+    const activeInterval = setInterval(() => {
+      if (activeMoods.has(inst.id) && (lexicon.phrases.length || lexicon.words.length)) {
+        const elapsed = Date.now() - activationTime;
+        if (elapsed < duration) {
+          // ~50% chance to generate another message during active phase
+          if (Math.random() < 0.4 && !suppressInstincts) {
+            const text = generateUtterance(lexicon, temperature);
+            if (text) addMessage({from:"parrot", text, instinct: inst.id});
+          }
+        } else {
+          clearInterval(activeInterval);
+          activeMoods.delete(inst.id);
+          // Schedule next activation
+          scheduleInstinct(inst);
+        }
+      }
+    }, 2000); // Check every 2 seconds
+    
+  }, cooldown);
 }
 INSTINCTS.forEach(scheduleInstinct);
 

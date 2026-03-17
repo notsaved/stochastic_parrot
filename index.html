@@ -97,15 +97,15 @@
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────
 const INSTINCTS = [
-  { id:"hunger",      emoji:"🌰", label:"Hunger",      cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:30000, tempMin:1.50, tempMax:1.90, messageIntervalMin:1000, messageIntervalMax:3000 },
-  { id:"attention",   emoji:"👁️", label:"Attention",   cooldownMin:240000,  cooldownMax:420000,  durationMin:12000, durationMax:35000, tempMin:0.90, tempMax:1.30, messageIntervalMin:2000, messageIntervalMax:4000 },
-  { id:"playful",     emoji:"🎲", label:"Playfulness", cooldownMin:200000,  cooldownMax:380000,  durationMin:10000, durationMax:28000, tempMin:1.30, tempMax:1.70, messageIntervalMin:1000, messageIntervalMax:3000 },
-  { id:"affection",   emoji:"🪶", label:"Affection",   cooldownMin:300000,  cooldownMax:600000,  durationMin:15000, durationMax:40000, tempMin:0.30, tempMax:0.70, messageIntervalMin:null, messageIntervalMax:null },
-  { id:"arousal",     emoji:"❤️", label:"Arousal",     cooldownMin:420000,  cooldownMax:840000,  durationMin:20000, durationMax:50000, tempMin:0.50, tempMax:0.90, messageIntervalMin:2000, messageIntervalMax:5000 },
-  { id:"reward",      emoji:"✨", label:"Reward",      cooldownMin:240000,  cooldownMax:480000,  durationMin:12000, durationMax:32000, tempMin:0.70, tempMax:1.10, messageIntervalMin:2000, messageIntervalMax:4000 },
-  { id:"territorial", emoji:"🏠", label:"Territory",   cooldownMin:360000,  cooldownMax:720000,  durationMin:15000, durationMax:38000, tempMin:1.70, tempMax:2.00, messageIntervalMin:1000, messageIntervalMax:3000 },
-  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:25000, tempMin:1.10, tempMax:1.50, messageIntervalMin:1000, messageIntervalMax:2000 },
-  { id:"boredom",     emoji:"💤", label:"Boredom",     cooldownMin:300000,  cooldownMax:600000,  durationMin:12000, durationMax:35000, tempMin:0.10, tempMax:0.50, messageIntervalMin:4000, messageIntervalMax:8000 },
+  { id:"hunger",      emoji:"🌰", label:"Hunger",      cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:60000, tempMin:1.50, tempMax:1.90, messageIntervalMin:1000, messageIntervalMax:3000 },
+  { id:"attention",   emoji:"👁️", label:"Attention",   cooldownMin:240000,  cooldownMax:420000,  durationMin:12000, durationMax:65000, tempMin:0.90, tempMax:1.30, messageIntervalMin:2000, messageIntervalMax:4000 },
+  { id:"playful",     emoji:"🎲", label:"Playfulness", cooldownMin:200000,  cooldownMax:380000,  durationMin:10000, durationMax:58000, tempMin:1.30, tempMax:1.70, messageIntervalMin:1000, messageIntervalMax:3000 },
+  { id:"affection",   emoji:"🪶", label:"Affection",   cooldownMin:300000,  cooldownMax:600000,  durationMin:15000, durationMax:70000, tempMin:0.30, tempMax:0.70, messageIntervalMin:null, messageIntervalMax:null },
+  { id:"arousal",     emoji:"❤️", label:"Arousal",     cooldownMin:420000,  cooldownMax:840000,  durationMin:20000, durationMax:80000, tempMin:0.50, tempMax:0.90, messageIntervalMin:2000, messageIntervalMax:5000 },
+  { id:"reward",      emoji:"✨", label:"Reward",      cooldownMin:240000,  cooldownMax:480000,  durationMin:12000, durationMax:62000, tempMin:0.70, tempMax:1.10, messageIntervalMin:2000, messageIntervalMax:4000 },
+  { id:"territorial", emoji:"🏠", label:"Territory",   cooldownMin:360000,  cooldownMax:720000,  durationMin:15000, durationMax:68000, tempMin:1.70, tempMax:2.00, messageIntervalMin:1000, messageIntervalMax:3000 },
+  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:55000, tempMin:1.10, tempMax:1.50, messageIntervalMin:1000, messageIntervalMax:2000 },
+  { id:"boredom",     emoji:"💤", label:"Boredom",     cooldownMin:300000,  cooldownMax:600000,  durationMin:12000, durationMax:65000, tempMin:0.10, tempMax:0.50, messageIntervalMin:4000, messageIntervalMax:8000 },
 ];
 const COMM = { emoji:"💬", label:"Response", replyWindowMin:300, replyWindowMax:1400, cooldownMin:20000, cooldownMax:50000 };
 const CARE_ACTIONS = [

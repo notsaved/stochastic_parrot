@@ -46,7 +46,8 @@
   #memory { font-size: 10px; color: #ccc; letter-spacing: 2px; }
   .sm-btn { background: none; border: 1px solid #ddd; border-radius: 3px; padding: 3px 8px; font-size: 10px; color: #aaa; cursor: pointer; letter-spacing: 1px; font-family: inherit; }
   #legend { margin-top: 12px; width: 100%; max-width: 560px; display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; }
-  .leg-item { font-size: 10px; color: #aaa; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; }
+  .leg-item { font-size: 10px; color: #aaa; letter-spacing: 1px; display: flex; align-items: center; gap: 4px; transition: color 0.2s; }
+  .leg-item.active { color: #111; font-weight: bold; }
   .leg-item .e { font-size: 11px; }
   @keyframes fadeIn  { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:translateY(0); } }
   @keyframes flicker { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
@@ -95,15 +96,15 @@
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────
 const INSTINCTS = [
-  { id:"hunger",      emoji:"🌰", label:"Hunger",      cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:30000 },
-  { id:"attention",   emoji:"👁️", label:"Attention",   cooldownMin:240000,  cooldownMax:420000,  durationMin:12000, durationMax:35000 },
-  { id:"playful",     emoji:"🎲", label:"Playfulness", cooldownMin:200000,  cooldownMax:380000,  durationMin:10000, durationMax:28000 },
-  { id:"affection",   emoji:"🪶", label:"Affection",   cooldownMin:300000,  cooldownMax:600000,  durationMin:15000, durationMax:40000 },
-  { id:"arousal",     emoji:"❤️", label:"Arousal",     cooldownMin:420000,  cooldownMax:840000,  durationMin:20000, durationMax:50000 },
-  { id:"reward",      emoji:"✨", label:"Reward",      cooldownMin:240000,  cooldownMax:480000,  durationMin:12000, durationMax:32000 },
-  { id:"territorial", emoji:"🏠", label:"Territory",   cooldownMin:360000,  cooldownMax:720000,  durationMin:15000, durationMax:38000 },
-  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:25000 },
-  { id:"boredom",     emoji:"💤", label:"Boredom",     cooldownMin:300000,  cooldownMax:600000,  durationMin:12000, durationMax:35000 },
+  { id:"hunger",      emoji:"🌰", label:"Hunger",      cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:30000, tempMin:1.50, tempMax:1.90, messageIntervalMin:1000, messageIntervalMax:3000 },
+  { id:"attention",   emoji:"👁️", label:"Attention",   cooldownMin:240000,  cooldownMax:420000,  durationMin:12000, durationMax:35000, tempMin:0.90, tempMax:1.30, messageIntervalMin:2000, messageIntervalMax:4000 },
+  { id:"playful",     emoji:"🎲", label:"Playfulness", cooldownMin:200000,  cooldownMax:380000,  durationMin:10000, durationMax:28000, tempMin:1.30, tempMax:1.70, messageIntervalMin:1000, messageIntervalMax:3000 },
+  { id:"affection",   emoji:"🪶", label:"Affection",   cooldownMin:300000,  cooldownMax:600000,  durationMin:15000, durationMax:40000, tempMin:0.30, tempMax:0.70, messageIntervalMin:null, messageIntervalMax:null },
+  { id:"arousal",     emoji:"❤️", label:"Arousal",     cooldownMin:420000,  cooldownMax:840000,  durationMin:20000, durationMax:50000, tempMin:0.50, tempMax:0.90, messageIntervalMin:2000, messageIntervalMax:5000 },
+  { id:"reward",      emoji:"✨", label:"Reward",      cooldownMin:240000,  cooldownMax:480000,  durationMin:12000, durationMax:32000, tempMin:0.70, tempMax:1.10, messageIntervalMin:2000, messageIntervalMax:4000 },
+  { id:"territorial", emoji:"🏠", label:"Territory",   cooldownMin:360000,  cooldownMax:720000,  durationMin:15000, durationMax:38000, tempMin:1.70, tempMax:2.00, messageIntervalMin:1000, messageIntervalMax:3000 },
+  { id:"curiosity",   emoji:"🔍", label:"Curiosity",   cooldownMin:180000,  cooldownMax:360000,  durationMin:10000, durationMax:25000, tempMin:1.10, tempMax:1.50, messageIntervalMin:1000, messageIntervalMax:2000 },
+  { id:"boredom",     emoji:"💤", label:"Boredom",     cooldownMin:300000,  cooldownMax:600000,  durationMin:12000, durationMax:35000, tempMin:0.10, tempMax:0.50, messageIntervalMin:4000, messageIntervalMax:8000 },
 ];
 const COMM = { emoji:"💬", label:"Response", replyWindowMin:300, replyWindowMax:1400, cooldownMin:20000, cooldownMax:50000 };
 const CARE_ACTIONS = [
@@ -204,6 +205,7 @@ function generateUtterance({phrases,words,subtokens,phraseChain,wordChain,subtok
 // ── State ──────────────────────────────────────────────────────────────────
 let lexicon = {phrases:[],words:[],subtokens:[],phraseChain:{},wordChain:{},subtokenChain:{}};
 let temperature   = 0.8;
+let sliderTemperature = 0.8; // tracks slider value independently
 let commState     = "available"; // available | fatigued | outburst
 let replyCount    = 0;
 let careUses      = {treat:0,toy:0,pet:0};
@@ -215,6 +217,9 @@ let fatigueThr    = randInt(5,15);
 let cooldownTimer = null;
 const instinctTimers = {};
 const activeMoods = new Set(); // tracks which moods are currently active
+const moodTemperatures = {}; // stores per-mood temperature values
+const moodMessageTimers = {}; // stores message interval timers per mood
+const moodInteractionState = {}; // stores mood-specific interaction state (e.g., curiosity message count)
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const chatEl      = document.getElementById("chat");
@@ -340,6 +345,7 @@ function wakeUp() {
   careUses    = {treat:0,toy:0,pet:0};
   outburstThr = randInt(5,8);
   fatigueThr  = randInt(5,15);
+  temperature = sliderTemperature;
   updateUI();
 }
 
@@ -357,12 +363,14 @@ function enterFatigue() {
 function enterOutburst() {
   commState         = "outburst";
   suppressInstincts = true;
+  const outburstTemp = 1.80 + Math.random()*(2.0 - 1.80);
+  temperature = outburstTemp;
   updateUI();
   const count = randInt(5,8);
   for (let i=0;i<count;i++) {
     const delay = (i+1)*(300+Math.random()*400);
     setTimeout(() => {
-      const text = crazyTransform(generateUtterance(lexicon,1.8)||"!!!");
+      const text = crazyTransform(generateUtterance(lexicon,temperature)||"!!!");
       addMessage({from:"parrot",text,instinct:"outburst"});
       if (i===count-1) setTimeout(enterFatigue, 600);
     }, delay);
@@ -372,39 +380,71 @@ function enterOutburst() {
 // ── Instinct timers ────────────────────────────────────────────────────────
 // Each instinct has two phases:
 // 1. COOLDOWN: Wait cooldownMin-Max milliseconds before activating
-// 2. ACTIVE: Stay active for durationMin-Max seconds, generating messages periodically
+// 2. ACTIVE: Stay active for durationMin-Max seconds, generating messages at mood-specific intervals
 function scheduleInstinct(inst) {
   const cooldown = inst.cooldownMin + Math.random()*(inst.cooldownMax - inst.cooldownMin);
   instinctTimers[inst.id] = setTimeout(() => {
     // Mood activation triggered
     activeMoods.add(inst.id);
+    updateLegend();
+    
+    // Initialize mood-specific interaction state
+    if (inst.id === "curiosity") {
+      moodInteractionState["curiosity_msgCount"] = 0;
+    }
+    
+    // Pick random temperature for this mood activation
+    const moodTemp = inst.tempMin + Math.random()*(inst.tempMax - inst.tempMin);
+    moodTemperatures[inst.id] = moodTemp;
+    const prevTemp = temperature;
+    temperature = moodTemp;
+    updateUI();
+    
     const duration = inst.durationMin + Math.random()*(inst.durationMax - inst.durationMin);
     const activationTime = Date.now();
+    let messageCount = 0;
     
     // Generate message immediately on activation
     if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length)) {
       const text = generateUtterance(lexicon, temperature);
-      if (text) addMessage({from:"parrot", text, instinct: inst.id});
+      if (text) { addMessage({from:"parrot", text, instinct: inst.id}); messageCount++; }
     }
     
-    // During active phase, generate periodic messages
-    const activeInterval = setInterval(() => {
-      if (activeMoods.has(inst.id) && (lexicon.phrases.length || lexicon.words.length)) {
-        const elapsed = Date.now() - activationTime;
-        if (elapsed < duration) {
-          // ~50% chance to generate another message during active phase
-          if (Math.random() < 0.4 && !suppressInstincts) {
-            const text = generateUtterance(lexicon, temperature);
-            if (text) addMessage({from:"parrot", text, instinct: inst.id});
+    // Special case: Affection only sends one message
+    if (inst.id === "affection") {
+      setTimeout(() => {
+        activeMoods.delete(inst.id);
+        temperature = sliderTemperature;
+        updateLegend();
+        updateUI();
+        scheduleInstinct(inst);
+      }, duration);
+      return;
+    }
+    
+    // During active phase, generate periodic messages at mood-specific intervals
+    if (inst.messageIntervalMin !== null) {
+      const messageInterval = inst.messageIntervalMin + Math.random()*(inst.messageIntervalMax - inst.messageIntervalMin);
+      moodMessageTimers[inst.id] = setInterval(() => {
+        if (activeMoods.has(inst.id)) {
+          const elapsed = Date.now() - activationTime;
+          if (elapsed < duration) {
+            if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length)) {
+              const text = generateUtterance(lexicon, temperature);
+              if (text) { addMessage({from:"parrot", text, instinct: inst.id}); messageCount++; }
+            }
+          } else {
+            clearInterval(moodMessageTimers[inst.id]);
+            delete moodMessageTimers[inst.id];
+            activeMoods.delete(inst.id);
+            temperature = sliderTemperature;
+            updateLegend();
+            updateUI();
+            scheduleInstinct(inst);
           }
-        } else {
-          clearInterval(activeInterval);
-          activeMoods.delete(inst.id);
-          // Schedule next activation
-          scheduleInstinct(inst);
         }
-      }
-    }, 2000); // Check every 2 seconds
+      }, messageInterval);
+    }
     
   }, cooldown);
 }
@@ -416,6 +456,18 @@ function handleSend() {
   if (!text || commState==="outburst") { msgInput.value=""; return; }
   msgInput.value = "";
   addMessage({from:"user",text});
+
+  // Handle mood interactions with user message
+  stopMood("attention");
+  restartMoodDuration("territorial");
+  
+  // Track curiosity message count
+  if (activeMoods.has("curiosity")) {
+    moodInteractionState["curiosity_msgCount"] = (moodInteractionState["curiosity_msgCount"] || 0) + 1;
+    if (moodInteractionState["curiosity_msgCount"] >= 5) {
+      stopMood("curiosity");
+    }
+  }
 
   const {phrases,words,subtokens} = ingest(text);
   lexicon = {
@@ -463,7 +515,70 @@ function handleSend() {
 
 sendBtn.addEventListener("click", handleSend);
 msgInput.addEventListener("keydown", e => { if (e.key==="Enter") handleSend(); });
+// ── Mood interaction helpers ───────────────────────────────────────────────
+function stopMood(moodId) {
+  if (activeMoods.has(moodId)) {
+    activeMoods.delete(moodId);
+    if (moodMessageTimers[moodId]) {
+      clearInterval(moodMessageTimers[moodId]);
+      delete moodMessageTimers[moodId];
+    }
+    // Clear interaction state for this mood
+    Object.keys(moodInteractionState).forEach(key => {
+      if (key.startsWith(moodId + "_")) delete moodInteractionState[key];
+    });
+    temperature = sliderTemperature;
+    updateLegend();
+    updateUI();
+  }
+}
 
+function restartMoodDuration(moodId) {
+  // Restarts mood active duration without going through cooldown
+  const inst = INSTINCTS.find(i => i.id === moodId);
+  if (!inst || !activeMoods.has(moodId)) return;
+  
+  // Clear existing message timer
+  if (moodMessageTimers[moodId]) {
+    clearInterval(moodMessageTimers[moodId]);
+    delete moodMessageTimers[moodId];
+  }
+  
+  const duration = inst.durationMin + Math.random()*(inst.durationMax - inst.durationMin);
+  const activationTime = Date.now();
+  
+  // Restart message generation
+  if (inst.messageIntervalMin !== null) {
+    const messageInterval = inst.messageIntervalMin + Math.random()*(inst.messageIntervalMax - inst.messageIntervalMin);
+    moodMessageTimers[moodId] = setInterval(() => {
+      if (activeMoods.has(moodId)) {
+        const elapsed = Date.now() - activationTime;
+        if (elapsed < duration) {
+          if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length)) {
+            const text = generateUtterance(lexicon, temperature);
+            if (text) { addMessage({from:"parrot", text, instinct: moodId}); }
+          }
+        } else {
+          clearInterval(moodMessageTimers[moodId]);
+          delete moodMessageTimers[moodId];
+          activeMoods.delete(moodId);
+          temperature = sliderTemperature;
+          updateLegend();
+          updateUI();
+          scheduleInstinct(inst);
+        }
+      }
+    }, messageInterval);
+  }
+}
+
+function resetMood(moodId) {
+  // Reset: restarts mood active duration if already active
+  if (activeMoods.has(moodId)) {
+    restartMoodDuration(moodId);
+  }
+  // If not active, reset has no effect (mood will activate on its cooldown timer)
+}
 // ── Care buttons ───────────────────────────────────────────────────────────
 function handleCare(id) {
   if (commState==="outburst") return;
@@ -473,6 +588,22 @@ function handleCare(id) {
     updateUI();
     return;
   }
+  
+  // Handle mood interactions
+  if (id === "treat") {
+    stopMood("hunger");
+    resetMood("reward");
+  } else if (id === "toy") {
+    stopMood("playful");
+    resetMood("curiosity");
+  } else if (id === "pet") {
+    stopMood("affection");
+    resetMood("arousal");
+  }
+  
+  // Any care action also resets territorial
+  restartMoodDuration("territorial");
+  
   if (lexicon.words.length||lexicon.phrases.length) {
     const utterance = generateUtterance(lexicon, 0.3);
     if (utterance) addMessage({from:"parrot",text:utterance,instinct:"affection"});
@@ -487,7 +618,14 @@ function handleCare(id) {
 CARE_ACTIONS.forEach(({id}) => careButtons[id].addEventListener("click", () => handleCare(id)));
 
 // ── Temperature slider ─────────────────────────────────────────────────────
-tempSlider.addEventListener("input", e => { temperature=parseFloat(e.target.value); updateUI(); });
+tempSlider.addEventListener("input", e => { 
+  sliderTemperature = parseFloat(e.target.value);
+  // Only update active temperature if no mood is active
+  if (activeMoods.size === 0 && commState !== "outburst") {
+    temperature = sliderTemperature;
+  }
+  updateUI(); 
+});
 
 // ── LocalStorage helpers ───────────────────────────────────────────────────
 function saveLexiconToStorage() {
@@ -562,15 +700,30 @@ document.getElementById("load-input").addEventListener("change", e => {
 
 // ── Legend ─────────────────────────────────────────────────────────────────
 const legendEl = document.getElementById("legend");
-[...INSTINCTS,{id:"comm",emoji:COMM.emoji,label:COMM.label},{id:"outburst",emoji:"💥",label:"Outburst"}].forEach(({emoji,label}) => {
+[...INSTINCTS,{id:"comm",emoji:COMM.emoji,label:COMM.label},{id:"outburst",emoji:"💥",label:"Outburst"}].forEach(({id,emoji,label}) => {
   const div = document.createElement("div");
   div.className = "leg-item";
+  div.setAttribute("data-mood-id", id);
   div.innerHTML = `<span class="e">${emoji}</span><span>${label}</span>`;
   legendEl.appendChild(div);
 });
 
+function updateLegend() {
+  INSTINCTS.concat([{id:"comm"},{id:"outburst"}]).forEach(({id}) => {
+    const item = legendEl.querySelector(`[data-mood-id="${id}"]`);
+    if (item) {
+      if (activeMoods.has(id)) {
+        item.classList.add("active");
+      } else {
+        item.classList.remove("active");
+      }
+    }
+  });
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 loadLexiconFromStorage();
+updateLegend();
 updateUI();
 </script>
 </body>

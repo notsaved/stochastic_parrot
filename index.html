@@ -158,7 +158,7 @@ function mergeChain(existing, tokens) {
 
 // ── Lexicon ────────────────────────────────────────────────────────────────
 function ingest(text) {
-  const phrases = text.split(/[.!?,;:\n]+/).map(s=>s.trim()).filter(s=>s.length>2&&s.length<80);
+  const phrases = text.split(/[.!?,;:\n]+/).map(s=>s.trim()).filter(s=>s.length>2&&s.length<200);
   const words = text.toLowerCase().replace(/[^a-z0-9'\s-]/g,"").split(/\s+/).filter(w=>w.length>1);
   const subtokens = words.flatMap(w => {
     if (w.length<=3) return [w];

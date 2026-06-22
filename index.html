@@ -210,6 +210,7 @@ function generateUtterance({phrases,words,subtokens,phraseChain,wordChain,subtok
 let lexicon = {phrases:[],words:[],subtokens:[],phraseChain:{},wordChain:{},subtokenChain:{}};
 let temperature   = 0.9;
 let sliderTemperature = 0.9; // tracks slider value independently
+let lastUserMessage = ""; // track last user input for echo responses
 let commState     = "available"; // available | fatigued | outburst
 let replyCount    = 0;
 let careUses      = {treat:0,toy:0,pet:0};
@@ -475,8 +476,7 @@ INSTINCTS.forEach(scheduleInstinct);
 function handleSend() {
   const text = msgInput.value.trim();
   if (!text || commState==="outburst") { msgInput.value=""; return; }
-  msgInput.value = "";
-  addMessage({from:"user",text});
+  msgInput.value = "";  lastUserMessage = text; // Store for potential echo response  addMessage({from:"user",text});
 
   // Handle mood interactions with user message
   stopMood("attention");
@@ -522,7 +522,19 @@ function handleSend() {
     const delay = COMM.replyWindowMin + Math.random()*(COMM.replyWindowMax-COMM.replyWindowMin);
     setTimeout(() => {
       if (commState !== "available") { suppressInstincts=false; activeMoods.delete("comm"); updateLegend(); updateUI(); return; }
-      const utterance = generateUtterance(lexicon, temperature);
+      let utterance = generateUtterance(lexicon, temperature);
+      
+      // 10% chance to echo last 1-2 tokens from user message
+      if (Math.random() < 0.1 && lastUserMessage) {
+        const words = lastUserMessage.toLowerCase().replace(/[^a-z0-9'\s-]/g,"").split(/\s+/).filter(w=>w.length>0);
+        if (words.length > 0) {
+          const numTokens = words.length === 1 ? 1 : Math.random() < 0.5 ? 1 : 2;
+          const startIdx = Math.max(0, words.length - numTokens);
+          const echoTokens = words.slice(startIdx);
+          utterance = echoTokens.join(" ") + " " + (utterance || "");
+        }
+      }
+      
       addMessage({from:"parrot",text:utterance,instinct:"comm"});
       activeMoods.delete("comm");
       rapidCount = 0;
@@ -699,6 +711,7 @@ document.getElementById("load-btn").addEventListener("click", () => document.get
 document.getElementById("clear-btn").addEventListener("click", () => {
   if (confirm("Clear all saved memory?")) {
     lexicon = {phrases:[],words:[],subtokens:[],phraseChain:{},wordChain:{},subtokenChain:{}};
+    lastUserMessage = "";
     localStorage.removeItem("chastico-lexicon");
     updateUI();
   }

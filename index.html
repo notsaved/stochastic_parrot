@@ -34,7 +34,7 @@
   #temp-row input { flex: 1; accent-color: #111; cursor: pointer; }
   #temp-row span.val { font-size: 11px; color: #333; min-width: 30px; text-align: right; }
   #temp-row span.mode { font-size: 10px; color: #aaa; min-width: 52px; }
-  #temp-lock { font-size: 12px; cursor: help; flex-shrink: 0; user-select: none; transition: opacity 0.3s; title: "temperature control"; }
+  #temp-lock { font-size: 12px; cursor: help; flex-shrink: 0; user-select: none; transition: opacity 0.3s; }
   #input-row { display: flex; padding: 10px 14px; gap: 8px; align-items: center; border-top: 1px solid #eee; background: #fff; }
   #input-row input { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 8px 12px; color: #111; font-size: 13px; outline: none; font-family: inherit; transition: border-color 0.3s; }
   #input-row input.outburst { border-color: #c22; }
@@ -109,8 +109,14 @@ const INSTINCTS = [
   { id:"territorial", emoji:"🏠", label:"Territorial", cooldownMin:720000,  cooldownMax:1440000, durationMin:10000, durationMax:40000, tempMin:1.70, tempMax:2.00, messageIntervalMin:2000, messageIntervalMax:6000 },
   { id:"curiosity",   emoji:"🔍", label:"Curiosity",   cooldownMin:360000,  cooldownMax:720000,  durationMin:10000, durationMax:55000, tempMin:1.10, tempMax:1.50, messageIntervalMin:2000, messageIntervalMax:4000 },
   { id:"boredom",     emoji:"💤", label:"Boredom",     cooldownMin:600000,  cooldownMax:1200000, durationMin:12000, durationMax:65000, tempMin:0.10, tempMax:0.50, messageIntervalMin:8000, messageIntervalMax:16000 },
+  { id:"squawk",      emoji:"🦜", label:"Squawk",      cooldownMin:360000,  cooldownMax:720000,  durationMin:1000,  durationMax:3000,  tempMin:0.00, tempMax:0.00, messageIntervalMin:500,  messageIntervalMax:800  },
 ];
 const COMM = { emoji:"💬", label:"Response", replyWindowMin:300, replyWindowMax:1400, cooldownMin:40000, cooldownMax:100000 };
+const SQUAWK_VARIATIONS = [
+  "SQUAWK", "SQUAAAAWK", "SQUAWWWWK", "SQUAWK!", "SQUAWK!!!", "SQUAWK!!!!",
+  "SCREEEEECH", "SQUAK", "SQUAAAWWWK", "SQUAWK??", "SQUAWK!?", "SQAAAWK",
+  "SQUAWK!!!!", "SQUAWWWK!", "SCREEEAM",
+];
 const CARE_ACTIONS = [
   { id:"treat", label:"cookie", emoji:"🍪" },
   { id:"toy",   label:"toy",    emoji:"🪀" },
@@ -127,6 +133,7 @@ const randInt = (a,b) => a + Math.floor(Math.random()*(b-a+1));
 const pick    = arr => arr[Math.floor(Math.random()*arr.length)];
 const altCaps = s => s.split("").map((c,i)=>i%2===0?c.toUpperCase():c.toLowerCase()).join("");
 const crazyTransform = t => { const r=Math.random(); if(r<0.5) return t.toUpperCase(); if(r<0.8) return altCaps(t); return t.toUpperCase()+"!!"; };
+const squawkVariation = () => pick(SQUAWK_VARIATIONS);
 
 // ── Markov ─────────────────────────────────────────────────────────────────
 function markovNext(chain, cur, temp, pool) {
@@ -441,8 +448,8 @@ function activateMood(inst, duration) {
       if (activeMoods.has(inst.id)) {
         const elapsed = Date.now() - activationTime;
         if (elapsed < duration) {
-          if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length)) {
-            const text = generateUtterance(lexicon, temperature);
+          if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length || inst.id === "squawk")) {
+            const text = inst.id === "squawk" ? squawkVariation() : generateUtterance(lexicon, temperature);
             if (text) { addMessage({from:"parrot", text, instinct: inst.id}); }
           }
         } else {
@@ -476,7 +483,9 @@ INSTINCTS.forEach(scheduleInstinct);
 function handleSend() {
   const text = msgInput.value.trim();
   if (!text || commState==="outburst") { msgInput.value=""; return; }
-  msgInput.value = "";  lastUserMessage = text; // Store for potential echo response  addMessage({from:"user",text});
+  msgInput.value = "";
+  lastUserMessage = text; // Store for potential echo response
+  addMessage({from:"user",text});
 
   // Handle mood interactions with user message
   stopMood("attention");
@@ -592,8 +601,8 @@ function restartMoodDuration(moodId) {
       if (activeMoods.has(moodId)) {
         const elapsed = Date.now() - activationTime;
         if (elapsed < duration) {
-          if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length)) {
-            const text = generateUtterance(lexicon, temperature);
+          if (!suppressInstincts && (lexicon.phrases.length || lexicon.words.length || inst.id === "squawk")) {
+            const text = inst.id === "squawk" ? squawkVariation() : generateUtterance(lexicon, temperature);
             if (text) { addMessage({from:"parrot", text, instinct: moodId}); }
           }
         } else {
@@ -750,6 +759,7 @@ const MOOD_TIPS = {
   territorial: "Extend with any action (message or care)",
   curiosity: "Stop with 5+ messages or 🪀 toy",
   boredom: "Cannot be stopped (let it pass)",
+  squawk: "Random squawking (it's still a parrot after all)",
   comm: "Responds unless fatigued",
   outburst: "Triggered by rapid messaging",
 };
